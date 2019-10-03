@@ -8,52 +8,77 @@ using UnityEngine;
 public class IKController : MonoBehaviour
 {
 
-    protected Animator animator;
+    Animator anim;
 
-    public bool ikActive = false;
-    public Transform rightFootObj = null;
-    public Transform lookObj = null;
+    public LayerMask layerMask; // Select all layers that foot placement applies to.
 
-    void Start()
+    [Range(0, 1f)]
+    public float DistanceToGround; // Distance from where the foot transform is to the lowest possible position of the foot.
+
+    private void Start()
     {
-        animator = GetComponent<Animator>();
+
+        anim = GetComponent<Animator>();
+
     }
 
-    //a callback for calculating IK
-    void OnAnimatorIK()
+    private void Update()
     {
-        if (animator)
-        {
 
-            //if the IK is active, set the position and rotation directly to the goal. 
-            if (ikActive)
+    }
+
+    private void OnAnimatorIK(int layerIndex)
+    {
+
+        if (anim)
+        { // Only carry out the following code if there is an Animator set.
+
+            // Set the weights of left and right feet to the current value defined by the curve in our animations.
+            anim.SetIKPositionWeight(AvatarIKGoal.LeftFoot, anim.GetFloat("IKLeftFootWeight"));
+            anim.SetIKRotationWeight(AvatarIKGoal.LeftFoot, anim.GetFloat("IKLeftFootWeight"));
+            anim.SetIKPositionWeight(AvatarIKGoal.RightFoot, anim.GetFloat("IKRightFootWeight"));
+            anim.SetIKRotationWeight(AvatarIKGoal.RightFoot, anim.GetFloat("IKRightFootWeight"));
+            print(anim.GetFloat("IKRightFootWeight"));
+
+            // Left Foot
+            RaycastHit hit;
+            // We cast our ray from above the foot in case the current terrain/floor is above the foot position.
+            Ray ray = new Ray(anim.GetIKPosition(AvatarIKGoal.LeftFoot) + Vector3.up, Vector3.down);
+            if (Physics.Raycast(ray, out hit, DistanceToGround + 1f, layerMask))
             {
 
-                // Set the look target position, if one has been assigned
-                if (lookObj != null)
+                // We're only concerned with objects that are tagged as "Walkable"
+                if (hit.transform.tag == "Walkable")
                 {
-                    animator.SetLookAtWeight(1);
-                    animator.SetLookAtPosition(lookObj.position);
-                }
 
-                // Set the right hand target position and rotation, if one has been assigned
-                if (rightFootObj != null)
-                {
-                    animator.SetIKPositionWeight(AvatarIKGoal.RightFoot, 1);
-                    animator.SetIKRotationWeight(AvatarIKGoal.RightFoot, 1);
-                    animator.SetIKPosition(AvatarIKGoal.RightFoot, rightFootObj.position);
-                    animator.SetIKRotation(AvatarIKGoal.RightFoot, rightFootObj.rotation);
+                    Vector3 footPosition = hit.point; // The target foot position is where the raycast hit a walkable object...
+                    footPosition.y += DistanceToGround; // ... taking account the distance to the ground we added above.
+                    anim.SetIKPosition(AvatarIKGoal.LeftFoot, footPosition);
+                    anim.SetIKRotation(AvatarIKGoal.LeftFoot, Quaternion.LookRotation(transform.forward, hit.normal));
+
                 }
 
             }
 
-            //if the IK is not active, set the position and rotation of the hand and head back to the original position
-            else
+            // Right Foot
+            ray = new Ray(anim.GetIKPosition(AvatarIKGoal.RightFoot) + Vector3.up, Vector3.down);
+            if (Physics.Raycast(ray, out hit, DistanceToGround + 1f, layerMask))
             {
-                animator.SetIKPositionWeight(AvatarIKGoal.RightFoot, 0);
-                animator.SetIKRotationWeight(AvatarIKGoal.RightFoot, 0);
-                animator.SetLookAtWeight(0);
+
+                if (hit.transform.tag == "Walkable")
+                {
+
+                    Vector3 footPosition = hit.point;
+                    footPosition.y += DistanceToGround;
+                    anim.SetIKPosition(AvatarIKGoal.RightFoot, footPosition);
+                    anim.SetIKRotation(AvatarIKGoal.RightFoot, Quaternion.LookRotation(transform.forward, hit.normal));
+
+                }
+
             }
+
+
         }
+
     }
 }
